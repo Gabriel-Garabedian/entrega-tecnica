@@ -1,0 +1,9 @@
+{
+  "name": "entrega-tecnica",
+  "private": true,
+  "version": "1.1.0",
+  "type": "module",
+  "scripts": { "test": "node --test tests/*.test.mjs", "build:cloud": "esbuild scripts/supabase-entry.mjs --bundle --format=esm --minify --platform=browser --outfile=dist/vendor/supabase.mjs" },
+  "dependencies": { "@supabase/supabase-js": "2.119.2" },
+  "devDependencies": { "esbuild": "0.25.12" }
+}

@@ -6,6 +6,9 @@
   <meta name="theme-color" content="#f7f7fc">
   <meta name="description" content="Organize atividades, testes e entregas no GitHub e no Moodle.">
   <title>Entrega Técnica</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" type="image/svg+xml" href="icon.svg">
+  <link rel="apple-touch-icon" href="icon-192.png">
   <script src="theme.js"></script>
   <link rel="stylesheet" href="style.css">
   <script type="module" src="app.js"></script>
@@ -25,7 +28,7 @@
     <div class="workspace">
       <header class="topbar">
         <div class="crumb"><span>Área de trabalho</span><i data-icon="chevron-right"></i><strong id="page-label">Visão geral</strong></div>
-        <div class="topbar-actions"><span class="storage"><i data-icon="shield"></i>Dados neste navegador</span><button class="theme-toggle" id="theme-toggle" type="button" aria-label="Alternar tema" title="Alternar tema"><span class="theme-symbol" aria-hidden="true">☾</span></button></div>
+        <div class="topbar-actions"><span class="storage" role="status" aria-live="polite"><i data-icon="shield"></i><span id="sync-status">Dados neste navegador</span></span><button class="button secondary install-control" type="button" data-action="install" aria-label="Instalar aplicativo" title="Instalar aplicativo"><i data-icon="download" aria-hidden="true"></i><span>Instalar</span></button><button class="button secondary account-control" id="account-button" type="button" data-action="auth"><i data-icon="team" aria-hidden="true"></i><span>Entrar</span></button><button class="theme-toggle" id="theme-toggle" type="button" aria-label="Alternar tema" title="Alternar tema"><span class="theme-symbol" aria-hidden="true">☾</span></button></div>
       </header>
       <main id="conteudo" tabindex="-1"><p class="loading">Carregando atividades…</p></main>
     </div>

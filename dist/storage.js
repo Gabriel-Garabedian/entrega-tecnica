@@ -67,15 +67,16 @@ function fileToData(file) {
   });
 }
 
-export async function makeBackup(projects) {
+export async function makeBackup(projects, resolveFile = async file => file.blob) {
   const records = [];
   for (const project of projects) {
     const artifacts = {};
     for (const [key, { link, file }] of Object.entries(project.artifacts)) {
       artifacts[key] = { link };
-      if (file) artifacts[key].file = { name: file.name, type: file.blob.type, data: await fileToData(file.blob) };
+      if (file) { const blob = await resolveFile(file); if (!blob) throw new Error('Anexo indisponível para backup.'); artifacts[key].file = { name: file.name, type: blob.type, data: await fileToData(blob) }; }
     }
-    records.push({ ...project, artifacts });
+    const { _cloudVersion, ...record } = project;
+    records.push({ ...record, artifacts });
   }
   return JSON.stringify({ format: 'entrega-tecnica', version: 1, projects: records });
 }

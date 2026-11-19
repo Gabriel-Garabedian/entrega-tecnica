@@ -26,7 +26,18 @@ Acesse `http://localhost:8080`. Não abra o HTML diretamente pelo sistema de arq
 
 ## Dados e privacidade
 
-Os projetos e anexos são salvos no IndexedDB do navegador. Não existe sincronização entre dispositivos nem envio automático ao GitHub ou Moodle. Exporte backups regularmente; não publique backups contendo dados pessoais ou arquivos de atividades no repositório.
+Sem login, os projetos e anexos são salvos no IndexedDB do navegador. Com login Supabase, as atividades são armazenadas no PostgreSQL e anexos no bucket privado `entrega-anexos`. A conta sincroniza os dispositivos por Realtime, com atualização periódica e ao voltar para a janela. O envio ao GitHub e Moodle continua manual. Exporte backups regularmente; não publique backups contendo dados pessoais ou arquivos de atividades no repositório.
+
+### Usar no computador e no celular
+
+1. Abra `https://entrega-tecnica-gabriel.garabedi4n.chatgpt.site/` nos dois dispositivos.
+2. Clique em **Entrar**, crie sua conta, confirme o e-mail e depois entre com o mesmo e-mail e senha.
+3. Se você criou atividades no endereço anterior, exporte o backup e importe na conta conectada. No mesmo navegador e endereço, também pode usar **Minha conta > Copiar atividades locais para a nuvem**, sem apagar as originais ou sobrescrever registros existentes.
+4. No celular, use o botão **Instalar** ou o menu do navegador para adicionar à tela inicial. A aplicação usa PWA e não exige computador ligado. A sincronização e a edição em nuvem exigem conexão; o modo local permanece disponível sem login.
+
+O projeto Supabase dedicado fica na região `sa-east-1`. O arquivo `supabase/schema.sql` documenta o esquema aplicado, as políticas RLS, o Storage privado e a publicação Realtime. `dist/cloud-config.js` contém apenas a chave publicável, nunca a chave privilegiada. Para configurar o endereço de confirmação de e-mail de produção, no painel Supabase (Authentication > URL Configuration), defina Site URL e Redirect URL como `https://entrega-tecnica-gabriel.garabedi4n.chatgpt.site/`. Mesmo que um link de confirmação redirecione para outro endereço, volte ao painel e entre após confirmar o e-mail.
+
+Para reconstruir o SDK local: `npm ci` e `npm run build:cloud`.
 
 Para hospedagem estática, publique o conteúdo de `dist/` em um servidor HTTPS.
 

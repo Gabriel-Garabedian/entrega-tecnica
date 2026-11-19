@@ -1,0 +1,16 @@
+{
+  "id": "./",
+  "name": "Entrega Técnica",
+  "short_name": "Entregas",
+  "description": "Organize suas atividades e entregas no GitHub e no Moodle.",
+  "lang": "pt-BR",
+  "start_url": "./#inicio",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#19191f",
+  "theme_color": "#6039cb",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

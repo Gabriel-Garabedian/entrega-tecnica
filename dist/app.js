@@ -2,6 +2,8 @@ import { author, emptyMember, fields, maxAttachmentSize, memberFields, newProjec
 import { makeBackup, openDatabase, parseBackup, readProjects, updateProject, writeProjects } from './storage.js';
 import { reveal, animateCounts, animateProgress, animateDialog, animateNotice, animatePress, animateStatus } from './motion-ui.js';
 import { installIcons, searchProjects, deadlineInfo, displayDate, monthLabel, dayKey, calendarDays, addMonths, isSameMonth, startOfMonth, priorityOrder, reorderColumn, mountBoard, destroyBoard, chartData, mountCharts, destroyCharts } from './workspace.js';
+import { CloudStore, getCloudClient, localOnlyProjects } from './cloud.js';
+import { installApp } from './pwa.js';
 
 const root = document.querySelector('main');
 const dialog = document.querySelector('dialog');
@@ -22,6 +24,10 @@ const captions = {
 installIcons();
 
 let db;
+let cloudClient, cloud, unwatchCloud, refreshTimer;
+let busy = 0, refreshing = false, refreshPending = false, authEpoch = 0;
+let cloudLoaded = false;
+let syncText = 'Dados neste navegador';
 let projects = [];
 let filter = 'all';
 let query = '';
@@ -60,6 +66,68 @@ function notify(message) {
   notice.textContent = message;
   animateNotice(notice);
   noticeTimeout = setTimeout(() => { notice.textContent = ''; }, 4200);
+}
+
+function paintAccount() {
+  const status = document.querySelector('#sync-status');
+  const account = document.querySelector('#account-button');
+  status.textContent = syncText;
+  account.querySelector('span').textContent = cloud ? 'Minha conta' : 'Entrar';
+  account.title = cloud ? cloud.user.email || 'Conta conectada' : 'Entrar para sincronizar';
+}
+function syncStatus(message) { syncText = message; paintAccount(); }
+async function activeRead() { return cloud ? cloud.readProjects() : readProjects(db); }
+async function activeWrite(records) { if (cloud) return cloud.writeProjects(records); await writeProjects(db, records); return records; }
+async function activeBlob(file) { return cloud ? cloud.fileBlob(file) : file.blob; }
+function requestRefresh() {
+  refreshPending = true;
+  clearTimeout(refreshTimer);
+  refreshTimer = setTimeout(refreshCloud, 220);
+}
+async function refreshCloud(force = false) {
+  const store = cloud;
+  if (!store) return;
+  if (refreshing || busy || (dialog.open && !force)) { refreshPending = true; return; }
+  refreshing = true; refreshPending = false;
+  try {
+    const records = await store.readProjects();
+    if (cloud !== store) return;
+    if (busy || (dialog.open && !force)) { refreshPending = true; return; }
+    const changed = !cloudLoaded || JSON.stringify(records.map(p => [p.id,p._cloudVersion]).sort()) !== JSON.stringify(projects.map(p => [p.id,p._cloudVersion]).sort());
+    cloudLoaded = true;
+    if (changed) { setProjects(records); renderKeepingDrafts(); }
+    syncStatus('Sincronizado na nuvem');
+  } catch { if (cloud === store) syncStatus('Sem conexão · tente sincronizar'); }
+  finally { refreshing = false; if (refreshPending && !busy && !dialog.open && cloud) requestRefresh(); }
+}
+async function applySession(session) {
+  const user = session?.user;
+  if ((!cloud && !user) || (cloud && cloud.user.id === user?.id)) return;
+  const epoch = ++authEpoch;
+  unwatchCloud?.(); unwatchCloud = undefined;
+  clearTimeout(refreshTimer); refreshPending = false;
+  cloud = user ? new CloudStore(cloudClient, user) : undefined;
+  cloudLoaded = false;
+  projects = []; monitored = ''; filter = 'all'; query = '';
+  root.innerHTML = '<p class="loading">Carregando atividades…</p>';
+  syncStatus(cloud ? 'Conectando à nuvem…' : 'Dados neste navegador');
+  const store = cloud;
+  try {
+    const records = store ? await store.readProjects() : await readProjects(db);
+    if (epoch !== authEpoch) return;
+    cloudLoaded = true; setProjects(records); render(true);
+    if (store) {
+      syncStatus('Sincronizado na nuvem');
+      unwatchCloud = store.watch(requestRefresh, status => { if (cloud === store) { if (status === 'SUBSCRIBED') requestRefresh(); else if (['CHANNEL_ERROR','TIMED_OUT','CLOSED'].includes(status)) syncStatus('Conexão instável · atualização automática por consulta'); } });
+    }
+  } catch { if (epoch === authEpoch) { render(true); syncStatus(store ? 'Sem conexão · tente sincronizar' : 'Armazenamento local indisponível'); } }
+}
+function authDialog(signup = false) {
+  if (cloud) {
+    showDialog('Minha conta', `<p class="cloud-account"><strong>${esc(cloud.user.email || 'Conta conectada')}</strong><span class="muted">${esc(syncText)}</span></p><p class="section-intro">As atividades da conta aparecem nos dispositivos onde você entrar com o mesmo e-mail. Os anexos ficam privados.</p><div class="stack">${button('sync-now','Sincronizar agora','secondary','download')}${button('migrate','Copiar atividades locais para a nuvem','secondary','folder')}${button('signout','Sair da conta','secondary')}</div><p class="section-intro">Se criou atividades em outro endereço (por exemplo localhost), exporte um backup lá e importe neste painel com sua conta conectada.</p>`);
+    return;
+  }
+  showDialog(signup ? 'Criar conta' : 'Entrar e sincronizar', `<p class="section-intro">Use o mesmo e-mail no computador e celular. Seus dados locais continuam disponíveis sem login.</p><form data-form="${signup ? 'signup' : 'signin'}"><div class="form-grid"><label class="field span"><span>E-mail</span><input name="email" type="email" autocomplete="email" required maxlength="254" placeholder="seu@email.com"></label><label class="field span"><span>Senha</span><input name="password" type="password" autocomplete="${signup ? 'new-password' : 'current-password'}" minlength="${signup ? '8' : '1'}" required placeholder="${signup ? 'Mínimo de 8 caracteres' : 'Sua senha'}"></label></div>${formError}<div class="form-actions"><button class="button primary" type="submit">${signup ? 'Criar conta' : 'Entrar'}</button>${button(signup ? 'auth' : 'auth-signup',signup ? 'Já tenho conta' : 'Criar minha conta','secondary')}</div>${signup ? '<p class="section-intro">Confirme o cadastro no e-mail enviado pelo Supabase, depois volte ao painel e entre.</p>' : ''}</form>`);
 }
 
 function saveOrder(ids) {
@@ -297,6 +365,10 @@ function detailDelivery(project) {
 function render(transition = false) {
   destroyBoard();
   destroyCharts();
+  if (cloud && !cloudLoaded) {
+    root.innerHTML = `<div class="panel empty empty-start"><span class="tile-icon">${icon('alert')}</span><h3>Não foi possível carregar sua conta</h3><p>Confira a conexão e tente novamente. Seus dados na nuvem não foram apagados.</p>${button('sync-now','Tentar sincronizar','primary','download')}</div>`;
+    return;
+  }
   const [page, id, section] = currentRoute();
   const project = page === 'atividade' && byId(id);
   const tab = Object.hasOwn(tabs, section) ? section : 'etapas';
@@ -396,7 +468,21 @@ async function handleAction(control) {
   const { action, id, key, member: memberId } = control.dataset;
   const project = byId(id);
   const person = project?.members.find(member => member.id === memberId);
-  if (action === 'view-list' || action === 'view-kanban') {
+  if (action === 'auth' || action === 'auth-signup') {
+    if (!busy) authDialog(action === 'auth-signup');
+  } else if (action === 'install') {
+    if (!await installApp()) showDialog('Instalar Entrega Técnica', `<p class="section-intro">No Android, abra o site no Chrome e escolha “Instalar aplicativo” ou “Adicionar à tela inicial” no menu. No iPhone, abra no Safari, toque em Compartilhar e em “Adicionar à Tela de Início”.</p>${button('close','Entendi','primary')}`);
+  } else if (action === 'signout' && cloud && !busy) {
+    const { error } = await cloudClient.auth.signOut({ scope: 'local' });
+    if (error) throw error;
+    dialog.close(); await applySession(null); notify('Você saiu da conta. Seus dados na nuvem continuam salvos.');
+  } else if (action === 'sync-now' && cloud) {
+    dialog.close(); await refreshCloud(true); notify(syncText);
+  } else if (action === 'migrate' && cloud) {
+    const local = localOnlyProjects(await readProjects(db), await cloud.existingIds());
+    if (!local.length) { notify('Não há atividades locais novas para copiar.'); return; }
+    showDialog('Copiar para a nuvem', `<p>Copiar ${local.length} ${local.length === 1 ? 'atividade deste navegador' : 'atividades deste navegador'} e seus anexos para a sua conta? Os dados locais serão mantidos e atividades existentes na nuvem não serão sobrescritas.</p><form data-form="migrate">${formError}<div class="form-actions">${button('close','Cancelar')}<button class="button primary" type="submit">Copiar atividades</button></div></form>`);
+  } else if (action === 'view-list' || action === 'view-kanban') {
     view = action.slice(5);
     try { localStorage.setItem('entrega-tecnica-view', view); } catch {}
     document.querySelectorAll('[data-action^="view-"]').forEach(item => item.setAttribute('aria-pressed', String(item.dataset.action === action)));
@@ -429,18 +515,19 @@ async function handleAction(control) {
   else if (action === 'export') {
     control.disabled = true;
     try {
-      const data = await makeBackup(await readProjects(db));
+      const data = await makeBackup(await activeRead(), activeBlob);
       download(new Blob([data], { type: 'application/json' }), 'entrega-tecnica-backup.json');
       notify('Backup exportado.');
     } finally { control.disabled = false; }
   } else if (action === 'member' && project) memberDialog(project, person);
   else if (action === 'delete' && project) {
-    confirmDialog('Remover atividade', `Excluir “${project.title}” e seus anexos deste navegador?`, 'delete', project);
+    confirmDialog('Remover atividade', `Excluir “${project.title}” e seus anexos ${cloud ? 'da sua conta em todos os dispositivos' : 'deste navegador'}?`, 'delete', project);
   } else if (action === 'delete-member' && person) {
     confirmDialog('Remover integrante', `Remover o registro de “${person.name}” desta atividade?`, 'delete-member', project, person);
   } else if (action === 'file' && project?.artifacts[key]?.file) {
-    const { name, blob } = project.artifacts[key].file;
-    download(blob, name);
+    const file = project.artifacts[key].file;
+    control.disabled = true;
+    try { download(await activeBlob(file), file.name); } finally { control.disabled = false; }
   } else if (action === 'remove-file' && project) {
     const slot = slots.find(([slot]) => slot === key);
     showDialog('Remover anexo', `<p>O arquivo anexado será removido desta atividade. O link do item continuará disponível.</p>
@@ -454,7 +541,9 @@ function setProjects(records) {
 }
 
 async function changeProject(id, callback) {
-  const changed = await updateProject(db, id, callback);
+  const store = cloud;
+  const changed = store ? await store.updateProject(id, callback, byId(id)?._cloudVersion) : await updateProject(db, id, callback);
+  if (cloud !== store) return;
   setProjects([...projects.filter(project => project.id !== id), ...(changed ? [changed] : [])]);
 }
 
@@ -486,12 +575,31 @@ async function saveForm(form) {
   const { form: kind, id, key, stageKey, member: memberId } = form.dataset;
   const data = new FormData(form);
   const read = key => String(data.get(key) || '').trim();
+  if (kind === 'signin' || kind === 'signup') {
+    cloudClient ||= await getCloudClient();
+    const credentials = { email: read('email'), password: String(data.get('password') || '') };
+    const { data: result, error } = kind === 'signin' ? await cloudClient.auth.signInWithPassword(credentials) : await cloudClient.auth.signUp({ ...credentials, options: { emailRedirectTo: 'https://entrega-tecnica-gabriel.garabedi4n.chatgpt.site/' } });
+    if (error) {
+      const messages = { invalid_credentials: 'E-mail ou senha inválidos.', email_not_confirmed: 'Confirme o e-mail recebido antes de entrar.', weak_password: 'Escolha uma senha mais forte.', over_email_send_rate_limit: 'Aguarde antes de solicitar outro e-mail.', signup_disabled: 'Cadastro indisponível neste momento.' };
+      throw new Error(messages[error.code] || error.message);
+    }
+    dialog.close();
+    if (result.session) { await applySession(result.session); notify('Conta conectada.'); }
+    else notify('Confira o e-mail de confirmação e depois volte para entrar.');
+    return;
+  }
+  if (kind === 'migrate') {
+    if (!cloud) throw new Error('Entre na conta para copiar.');
+    const local = localOnlyProjects(await readProjects(db), await cloud.existingIds());
+    if (local.length) await cloud.writeProjects(local);
+    dialog.close(); setProjects(await cloud.readProjects()); render(true); notify(`${local.length} atividade(s) copiada(s) para a nuvem.`); return;
+  }
   if (kind === 'new') {
     const project = newProject();
     for (const field of ['title','discipline','deadline']) project[field] = read(field);
     if (!project.title) throw new Error('Informe o título da atividade.');
-    await writeProjects(db, [project]);
-    setProjects([...projects, project]);
+    const [stored] = await activeWrite([project]);
+    setProjects([...projects, stored]);
     monitored = project.id;
     filter = 'all';
     query = '';
@@ -509,8 +617,8 @@ async function saveForm(form) {
       if (error instanceof SyntaxError || error instanceof DOMException) throw new Error('O arquivo de backup está inválido.');
       throw error;
     }
-    await writeProjects(db, imported);
-    setProjects([...projects, ...imported]);
+    const stored = await activeWrite(imported);
+    setProjects([...projects, ...stored]);
     if (imported.length) monitored = imported[0].id;
     dialog.close();
     renderKeepingDrafts(form);
@@ -569,6 +677,7 @@ async function changeStage(select) {
   const { id, stage, state: previous } = select.dataset;
   const next = select.value;
   select.disabled = true;
+  busy++;
   try {
     await changeProject(id, project => {
       if (stage === 'author' && next === 'done' && project.observedAuthor !== author) {
@@ -587,13 +696,24 @@ async function changeStage(select) {
   } catch (error) {
     select.value = previous;
     notify(error.message || 'Não foi possível atualizar a etapa.');
-  } finally { select.disabled = false; }
+  } finally { select.disabled = false; busy--; if (cloud) requestRefresh(); }
 }
 
 try {
   db = await openDatabase();
   setProjects(await readProjects(db));
   render(true);
+  paintAccount();
+  getCloudClient().then(async client => {
+    cloudClient = client;
+    const { data, error } = await client.auth.getSession();
+    if (!error && data.session) await applySession(data.session);
+    client.auth.onAuthStateChange((event, session) => { setTimeout(() => { if (event !== 'INITIAL_SESSION') applySession(session).catch(console.error); }, 0); });
+  }).catch(() => { syncStatus('Modo local · nuvem indisponível'); });
+  setInterval(() => { if (cloud && document.visibilityState === 'visible') requestRefresh(); }, 30000);
+  window.addEventListener('online', requestRefresh);
+  window.addEventListener('focus', () => { if (cloud) requestRefresh(); });
+  dialog.addEventListener('close', () => { if (refreshPending) requestRefresh(); });
   new MutationObserver(() => { const area = document.querySelector('#insights'); if (area) mountCharts(area, projects).catch(console.error); }).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
   window.addEventListener('hashchange', () => {
     render(true);
@@ -631,12 +751,13 @@ try {
     if (button.disabled) return;
     button.disabled = true;
     error.textContent = '';
+    busy++;
     try { await saveForm(form); }
     catch (problem) {
       error.textContent = problem?.name === 'QuotaExceededError'
         ? 'O armazenamento deste navegador está cheio. Tente associar o arquivo por link.'
         : problem?.message || 'Não foi possível salvar. Confira o armazenamento do navegador.';
-    } finally { button.disabled = false; }
+    } finally { button.disabled = false; busy--; if (cloud) requestRefresh(); }
   });
 } catch {
   root.innerHTML = '<div class="panel empty" role="alert">O armazenamento deste navegador está indisponível. Abra o site em uma janela com armazenamento local habilitado.</div>';
