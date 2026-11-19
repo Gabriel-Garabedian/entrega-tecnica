@@ -1,11 +1,11 @@
 import { author, emptyMember, fields, maxAttachmentSize, memberFields, newProject, professorMessage, safeLink, slots, stages, states, statusLabels, summary, validFile } from './model.js';
 import { makeBackup, openDatabase, parseBackup, readProjects, updateProject, writeProjects } from './storage.js';
 import { reveal, animateCounts, animateProgress, animateDialog, animateNotice, animatePress, animateStatus } from './motion-ui.js';
+import { installIcons, searchProjects, deadlineInfo, displayDate, monthLabel, dayKey, calendarDays, addMonths, isSameMonth, startOfMonth, priorityOrder, reorderColumn, mountBoard, destroyBoard, chartData, mountCharts, destroyCharts } from './workspace.js';
 
 const root = document.querySelector('main');
 const dialog = document.querySelector('dialog');
 const notice = document.querySelector('#notice');
-const dateFormat = new Intl.DateTimeFormat('pt-BR', { dateStyle: 'medium', timeZone: 'UTC' });
 const tabs = {
   etapas: ['Etapas', 'checklist'], dados: ['Dados da atividade', 'folder'],
   equipe: ['Equipe e testes', 'team'], envio: ['Arquivos e envio', 'file']
@@ -19,43 +19,7 @@ const captions = {
   tests: 'Testes realizados', results: 'Resultados', pending: 'Pendências'
 };
 
-const iconPaths = {
-  layers: 'M2 8l10-5 10 5-10 5-10-5zM2 12l10 5 10-5M2 16l10 5 10-5',
-  grid: 'M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z',
-  folder: 'M3 7a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z',
-  download: 'M12 3v12m-4-4 4 4 4-4M4 16v4h16v-4',
-  'chevron-right': 'M9 5l7 7-7 7',
-  shield: 'M12 22s7-3 7-9V6l-7-3-7 3v7c0 6 7 9 7 9zm-3-10 2 2 4-4',
-  plus: 'M12 5v14M5 12h14',
-  file: 'M6 3h8l4 4v14H6zM14 3v5h4M9 12h6M9 16h6',
-  clock: 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zm0 4v5l3 2',
-  alert: 'M12 3l10 17H2L12 3zm0 6v4m0 3v.1',
-  check: 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zm-4 9 3 3 5-6',
-  search: 'M10 4a6 6 0 1 0 0 12 6 6 0 0 0 0-12zm5 10 5 6',
-  checklist: 'M3 6l2 2 3-4m3 2h10M3 12l2 2 3-4m3 2h10M3 18l2 2 3-4m3 2h10',
-  send: 'M3 4l18 8-18 8 3-8-3-8zm3 8h15',
-  team: 'M8 5a3 3 0 1 0 0 6 3 3 0 0 0 0-6zM2 19v-2c0-4 12-4 12 0v2M16 5a3 3 0 0 1 0 6m1 3c3 0 5 1 5 3v2',
-  copy: 'M8 8h12v13H8zM4 16V3h12',
-  close: 'M6 6l12 12M18 6 6 18',
-  link: 'M10 13l4-4m-7 5-2 2a3 3 0 0 0 4 4l4-4m-2-8 4-4a3 3 0 0 1 4 4l-2 2'
-};
-{
-  const canvas = document.createElement('canvas');
-  canvas.width = canvas.height = 48;
-  const context = canvas.getContext('2d');
-  if (context) {
-    context.scale(2, 2);
-    context.lineWidth = 1.75;
-    context.lineJoin = context.lineCap = 'round';
-    const style = document.createElement('style');
-    style.textContent = Object.entries(iconPaths).map(([name, path]) => {
-      context.clearRect(0, 0, 24, 24);
-      context.stroke(new Path2D(path));
-      return `[data-icon="${name}"]{--mask:url("${canvas.toDataURL()}")}`;
-    }).join('');
-    document.head.append(style);
-  }
-}
+installIcons();
 
 let db;
 let projects = [];
@@ -63,6 +27,11 @@ let filter = 'all';
 let query = '';
 let monitored = '';
 let noticeTimeout;
+let view = 'list';
+let manualOrder = [];
+let calendarMonth = startOfMonth(new Date());
+let selectedDay = dayKey(new Date());
+try { view = localStorage.getItem('entrega-tecnica-view') === 'kanban' ? 'kanban' : 'list'; const saved = JSON.parse(localStorage.getItem('entrega-tecnica-order') || '[]'); if (Array.isArray(saved)) manualOrder = saved.filter(id => typeof id === 'string'); } catch {}
 const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({
   '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
 })[char]);
@@ -73,10 +42,8 @@ const statusBadge = info => pill(info.status, info.status === 'delivered' ? 'Ent
 const isExample = project => project.example || project.id === 'exemplo';
 const sample = project => isExample(project) ? pill('sample', 'Exemplo') : '';
 const text = (value, fallback = '') => value ? esc(value) : fallback;
-const date = value => {
-  const parsed = new Date(`${value}T00:00:00Z`);
-  return value && Number.isFinite(parsed.valueOf()) ? dateFormat.format(parsed).replaceAll(' de ', ' ').replace('.', '') : 'Sem prazo';
-};
+const date = displayDate;
+const deadlineBadge = project => { const result = deadlineInfo(project); return `<span class="deadline-badge ${result.tone}">${esc(result.label)}</span>`; };
 const external = (value, label, className = '') => {
   const url = safeLink(value);
   return url ? `<a class="${className}" href="${esc(url)}" target="_blank" rel="noopener noreferrer">${esc(label)}</a>` : '';
@@ -95,16 +62,28 @@ function notify(message) {
   noticeTimeout = setTimeout(() => { notice.textContent = ''; }, 4200);
 }
 
+function saveOrder(ids) {
+  manualOrder = reorderColumn(manualOrder, ids).filter(id => byId(id));
+  try { localStorage.setItem('entrega-tecnica-order', JSON.stringify(manualOrder)); } catch {}
+}
+function kanban(visible) {
+  const columns = ['doing', 'blocked', 'delivered'].filter(status => filter === 'all' || filter === status);
+  return `<p class="board-hint muted">Arraste para priorizar dentro de uma coluna. O status muda pelas etapas da atividade.</p><div class="kanban-grid">${columns.map(status => {
+    const cards = priorityOrder(visible.filter(project => summary(project).status === status), manualOrder);
+    return `<section class="kanban-column" aria-label="${statusLabels[status]}"><header><span class="kanban-dot ${status}"></span><h3>${statusLabels[status]}</h3><span class="column-count">${cards.length}</span></header><div class="kanban-list" data-kanban-list="${status}">${cards.map((project, index) => `<article class="kanban-card panel" data-card="${esc(project.id)}"><div class="kanban-card-head"><a href="${activityLink(project)}"><strong>${esc(project.title)}</strong></a>${query.trim() ? '' : `<span class="drag-handle" title="Arrastar para priorizar">${icon('grip')}</span>`}</div><small>${text(project.discipline, 'Sem disciplina')}</small>${progressBar(summary(project), `board-${project.id}`)}<div class="kanban-foot">${deadlineBadge(project)}${query.trim() ? '' : `<div class="kanban-order"><button class="order-button" type="button" data-action="reorder" data-id="${esc(project.id)}" data-direction="-1" aria-label="Mover ${esc(project.title)} para cima" ${index === 0 ? 'disabled' : ''}>${icon('chevron-up')}</button><button class="order-button" type="button" data-action="reorder" data-id="${esc(project.id)}" data-direction="1" aria-label="Mover ${esc(project.title)} para baixo" ${index === cards.length - 1 ? 'disabled' : ''}>${icon('chevron-down')}</button></div>`}</div></article>`).join('') || '<p class="kanban-empty">Nenhuma atividade</p>'}</div></section>`;
+  }).join('')}</div>`;
+}
 function renderRows() {
   const area = document.querySelector('#table-area');
   if (!area) return;
-  const normalize = value => value.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase();
-  const term = normalize(query.trim());
-  const visible = projects.filter(project => {
-    const info = summary(project);
-    return (filter === 'all' || filter === info.status) &&
-      (!term || normalize([project.title, project.discipline, project.branch].join(' ')).includes(term));
-  });
+  destroyBoard();
+  const visible = searchProjects(projects.filter(project => filter === 'all' || summary(project).status === filter), query);
+  if (view === 'kanban' && (visible.length || !query.trim())) {
+    area.innerHTML = kanban(visible);
+    if (!query.trim()) mountBoard(area, ids => { saveOrder(ids); renderRows(); notify('Ordem de prioridade salva.'); });
+    animateProgress(area);
+    return;
+  }
   if (!visible.length) {
     area.innerHTML = projects.length ? '<div class="panel empty">Nenhuma atividade corresponde à busca.</div>' : `<div class="panel empty empty-start"><span class="tile-icon">${icon('folder')}</span><h3>Nenhuma atividade cadastrada</h3><p>Seu painel está pronto. Crie sua primeira atividade quando quiser.</p>${button('new', 'Criar primeira atividade', 'primary', 'plus')}</div>`;
     return;
@@ -116,11 +95,31 @@ function renderRows() {
       return `<tr>
         <td><div class="activity-cell"><span class="tile-icon">${icon('folder')}</span><div><a href="${activityLink(project)}">${esc(project.title)}</a>${sample(project)}<small>${text(project.discipline, 'Sem disciplina')}</small></div></div></td>
         <td>${statusBadge(info)}</td><td class="progress-cell">${progressBar(info, `row-${project.id}`)}</td>
-        <td data-cell="deadline">${date(project.deadline)}</td>
+        <td data-cell="deadline"><span class="deadline-date">${date(project.deadline)}</span>${deadlineBadge(project)}</td>
         <td><a class="button secondary" href="${activityLink(project)}" aria-label="Abrir ${esc(project.title)}">Abrir</a></td>
       </tr>`;
     }).join('')}</tbody></table></div>`;
   animateProgress(area);
+}
+
+function insights() {
+  const { counts, progress } = chartData(projects);
+  const pending = projects.map(project => ({ project, info: deadlineInfo(project) })).filter(item => item.info.date && item.info.tone !== 'done').sort((a,b) => a.info.days - b.info.days);
+  const late = pending.filter(item => item.info.days < 0).length;
+  const soon = pending.filter(item => item.info.days >= 0 && item.info.days <= 7).length;
+  return `<section class="insights" id="insights"><div class="section-head"><div><h2>Planejamento e produtividade</h2><p class="muted">Acompanhe seus prazos e a evolução de cada entrega.</p></div></div><div class="insight-grid"><section class="panel padded"><div class="panel-heading">${icon('chart')}<h2>Distribuição por status</h2></div>${projects.length ? `<div class="donut-wrap"><canvas id="status-chart" role="img" aria-label="${counts.doing} em andamento, ${counts.blocked} com bloqueios e ${counts.delivered} entregues"></canvas><div class="donut-center" aria-hidden="true"><strong>${projects.length}</strong><small>atividades</small></div></div><div class="chart-legend">${[['doing','Em andamento'],['blocked','Com bloqueios'],['delivered','Entregues']].map(([status,label]) => `<span><i class="kanban-dot ${status}"></i>${label} <b>${counts[status]}</b></span>`).join('')}</div>` : '<div class="chart-empty">Cadastre uma atividade para visualizar os dados.</div>'}</section><section class="panel padded"><div class="panel-heading">${icon('checklist')}<h2>Progresso por atividade</h2></div>${projects.length ? `<div class="bar-wrap"><canvas id="progress-chart" role="img" aria-label="${esc(progress.map(item => `${item.title}: ${item.percent}%`).join('; '))}"></canvas></div><small class="muted">Até seis atividades, priorizadas pelo prazo.</small>` : '<div class="chart-empty">O gráfico acompanha as etapas concluídas.</div>'}</section></div><div class="insight-grid calendar-grid"><section class="panel padded"><div class="panel-heading">${icon('calendar')}<h2>Calendário de entregas</h2></div><div id="calendar-area"></div></section><section class="panel padded"><div class="panel-heading">${icon('clock')}<h2>Alertas de prazo</h2></div><div class="deadline-stats"><div><b>${late}</b><small>Atrasadas</small></div><div><b>${soon}</b><small>Próximos 7 dias</small></div></div>${pending.length ? `<ul class="mini-list deadline-list">${pending.slice(0, 6).map(({project}) => `<li><div><a href="${activityLink(project)}">${esc(project.title)}</a><small>${date(project.deadline)}</small></div>${deadlineBadge(project)}</li>`).join('')}</ul>` : '<p class="muted chart-empty">Nenhum prazo pendente. Adicione uma data a uma atividade.</p>'}</section></div></section>`;
+}
+function renderCalendar() {
+  const area = document.querySelector('#calendar-area');
+  if (!area) return;
+  const today = dayKey(new Date());
+  const byDay = new Map();
+  for (const project of projects) { const info = deadlineInfo(project); if (info.date) { const key = dayKey(info.date); byDay.set(key, [...(byDay.get(key) || []), project]); } }
+  const selected = byDay.get(selectedDay) || [];
+  area.innerHTML = `<div class="calendar-head"><h3>${esc(monthLabel(calendarMonth))}</h3><div class="calendar-controls">${button('calendar-prev','', 'secondary icon-button', 'chevron-left', 'aria-label="Mês anterior"')}${button('calendar-today','Hoje','secondary')}${button('calendar-next','', 'secondary icon-button', 'chevron-right', 'aria-label="Próximo mês"')}</div></div><div class="calendar-days">${['dom','seg','ter','qua','qui','sex','sáb'].map(label => `<span class="weekday">${label}</span>`).join('')}${calendarDays(calendarMonth).map(day => {
+    const key = dayKey(day); const entries = byDay.get(key) || [];
+    return `<button type="button" data-action="calendar-day" data-day="${key}" class="calendar-day ${!isSameMonth(day, calendarMonth) ? 'outside' : ''} ${key === today ? 'today' : ''}" aria-pressed="${key === selectedDay}" aria-label="${key.split('-').reverse().join('/')}, ${entries.length} ${entries.length === 1 ? 'entrega' : 'entregas'}"><span>${day.getDate()}</span>${entries.length ? `<small class="calendar-event">${entries.length}</small>` : ''}</button>`;
+  }).join('')}</div><div class="calendar-agenda"><h3>${date(selectedDay)}</h3>${selected.length ? `<ul class="mini-list deadline-list">${selected.map(project => `<li><a href="${activityLink(project)}">${esc(project.title)}</a>${deadlineBadge(project)}</li>`).join('')}</ul>` : '<p class="muted">Nenhuma entrega nesta data.</p>'}</div>`;
 }
 
 function summaryPanel(project) {
@@ -180,16 +179,18 @@ function dashboard(home) {
       <div class="toolbar">
         <label class="search">${icon('search')}<span class="visually-hidden">Pesquisar atividades</span><input id="search" type="search" placeholder="Buscar atividade" value="${esc(query)}"></label>
         <select id="filter" aria-label="Filtrar atividades por status">${Object.entries(statusLabels).map(([id, label]) => `<option value="${id}" ${filter === id ? 'selected' : ''}>${label}</option>`).join('')}</select>
+        <div class="view-toggle" role="group" aria-label="Visualização">${button('view-list','Lista','secondary','list',`aria-pressed="${view === 'list'}"`)}${button('view-kanban','Kanban','secondary','kanban',`aria-pressed="${view === 'kanban'}"`)}</div>
       </div>
     </div>
     <div id="table-area" aria-live="polite"></div>
   </section>
   ${home && projects.length ? `<section class="review" id="monitor"><div class="section-head"><h2>Visão consolidada</h2>
     <div class="toolbar"><select id="monitor-project" aria-label="Atividade da visão consolidada">${projects.map(project => `<option value="${project.id}" ${(byId(monitored) || projects[0]).id === project.id ? 'selected' : ''}>${esc(project.title)}${isExample(project) ? ' (exemplo)' : ''}</option>`).join('')}</select></div></div>
-    <div class="review-grid"></div></section>` : ''}`;
+    <div class="review-grid"></div></section>` : ''}${home ? insights() : ''}`;
   renderRows();
   renderMonitor();
   animateCounts(root);
+  if (home) { renderCalendar(); mountCharts(document.querySelector('#insights'), projects).catch(console.error); }
 }
 
 function basicInput(label, key, value = '', { type = 'text', required = false, hint = '', wide = false, rows = 0, placeholder = '' } = {}) {
@@ -294,6 +295,8 @@ function detailDelivery(project) {
 }
 
 function render(transition = false) {
+  destroyBoard();
+  destroyCharts();
   const [page, id, section] = currentRoute();
   const project = page === 'atividade' && byId(id);
   const tab = Object.hasOwn(tabs, section) ? section : 'etapas';
@@ -311,7 +314,7 @@ function render(transition = false) {
   const info = summary(project);
   root.innerHTML = `<a class="back" href="#atividades">Voltar às atividades</a>
     <div class="title-row"><div><h1>${esc(project.title)} ${sample(project)}</h1>
-    <div class="metadata">${project.discipline ? `<span>${esc(project.discipline)}</span>` : ''}<span class="icon-label">${icon('clock')}${date(project.deadline)}</span>${statusBadge(info)}</div></div>
+    <div class="metadata">${project.discipline ? `<span>${esc(project.discipline)}</span>` : ''}<span class="icon-label">${icon('clock')}${date(project.deadline)}</span>${deadlineBadge(project)}${statusBadge(info)}</div></div>
     ${button('delete', isExample(project) ? 'Remover exemplo' : 'Excluir atividade', 'secondary', '', `data-id="${project.id}"`)}</div>
     <nav class="tabbar" aria-label="Seções da atividade">${Object.entries(tabs).map(([key, [label, glyph]]) => `<a href="${activityLink(project, key)}" ${tab === key ? 'aria-current="page"' : ''}>${icon(glyph)}${label}</a>`).join('')}</nav>
     ${({ etapas: detailStages, dados: detailData, equipe: detailTeam, envio: detailDelivery })[tab](project)}`;
@@ -393,7 +396,30 @@ async function handleAction(control) {
   const { action, id, key, member: memberId } = control.dataset;
   const project = byId(id);
   const person = project?.members.find(member => member.id === memberId);
-  if (action === 'new') {
+  if (action === 'view-list' || action === 'view-kanban') {
+    view = action.slice(5);
+    try { localStorage.setItem('entrega-tecnica-view', view); } catch {}
+    document.querySelectorAll('[data-action^="view-"]').forEach(item => item.setAttribute('aria-pressed', String(item.dataset.action === action)));
+    renderRows();
+    reveal(document.querySelector('#table-area'));
+  } else if (action === 'reorder' && project) {
+    const column = control.closest('[data-kanban-list]');
+    const ids = [...column.querySelectorAll('[data-card]')].map(card => card.dataset.card);
+    const index = ids.indexOf(id), next = index + Number(control.dataset.direction);
+    if (index >= 0 && next >= 0 && next < ids.length) {
+      [ids[index], ids[next]] = [ids[next], ids[index]];
+      saveOrder(ids); renderRows(); notify('Ordem de prioridade salva.');
+      [...document.querySelectorAll('[data-action="reorder"]')].find(item => item.dataset.id === id && item.dataset.direction === control.dataset.direction && !item.disabled)?.focus();
+    }
+  } else if (action.startsWith('calendar-')) {
+    if (action === 'calendar-prev') { calendarMonth = addMonths(calendarMonth, -1); selectedDay = dayKey(calendarMonth); }
+    if (action === 'calendar-next') { calendarMonth = addMonths(calendarMonth, 1); selectedDay = dayKey(calendarMonth); }
+    if (action === 'calendar-today') { calendarMonth = startOfMonth(new Date()); selectedDay = dayKey(new Date()); }
+    if (action === 'calendar-day') selectedDay = control.dataset.day;
+    renderCalendar();
+    if (action === 'calendar-day') document.querySelector(`[data-day="${selectedDay}"]`)?.focus();
+    else document.querySelector(`[data-action="${action}"]`)?.focus();
+  } else if (action === 'new') {
     showDialog('Nova atividade', `<form data-form="new"><div class="form-grid">${generalFields(newProject())}</div>
       ${formError}<div class="form-actions"><button class="button primary" type="submit">Criar atividade</button></div></form>`);
   } else if (action === 'close') dialog.close();
@@ -568,6 +594,7 @@ try {
   db = await openDatabase();
   setProjects(await readProjects(db));
   render(true);
+  new MutationObserver(() => { const area = document.querySelector('#insights'); if (area) mountCharts(area, projects).catch(console.error); }).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
   window.addEventListener('hashchange', () => {
     render(true);
     root.focus({ preventScroll: true });

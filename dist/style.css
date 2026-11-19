@@ -304,3 +304,52 @@ dialog::backdrop { backdrop-filter: blur(5px); animation: veil-in .25s ease both
 [data-theme="dark"] select { background-image: linear-gradient(45deg, transparent 50%, #b6b2c5 50%), linear-gradient(135deg, #b6b2c5 50%, transparent 50%); }
 @media (max-width: 28rem) { .storage { font-size: 0; } .storage i { font-size: 1rem; } .topbar-actions { gap: .5rem; } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; animation-delay: 0ms !important; transition-duration: .01ms !important; scroll-behavior: auto !important; } }
+
+/* Planning views. Dashboard, kanban and calendar share the same visual system. */
+.view-toggle { display: flex; padding: 3px; gap: 2px; background: var(--surface); border: 1px solid var(--line); border-radius: .7rem; }
+.view-toggle .button { min-height: 2.15rem; border: 0; padding: .4rem .6rem; font-size: .82rem; background: transparent; color: var(--muted); }
+.view-toggle .button[aria-pressed="true"] { color: var(--violet-deep); background: var(--lavender); }
+.deadline-date { display: block; }
+.deadline-badge { display: inline-flex; align-items: center; font-size: .78rem; font-weight: 700; line-height: 1.3; border-radius: .35rem; padding: .22rem .42rem; background: var(--bg); color: var(--muted); }
+.deadline-badge.late { background: #fce6ec; color: #a13252; }
+.deadline-badge.urgent, .deadline-badge.soon { background: #fff0e2; color: var(--amber); }
+.deadline-badge.done { background: #e5f6ee; color: var(--green); }
+.deadline-badge.normal { background: var(--lavender); color: var(--violet-deep); }
+[data-theme="dark"] .deadline-badge.late { background: #492731; color: #ffadc5; }
+[data-theme="dark"] :is(.deadline-badge.urgent,.deadline-badge.soon) { background: #3c2b24; color: var(--amber); }
+[data-theme="dark"] .deadline-badge.done { background: #233c31; color: var(--green); }
+[data-cell="deadline"] .deadline-badge.none { display: none; }
+[data-cell="deadline"] .deadline-badge { margin-top: .2rem; }
+.board-hint { font-size: .85rem; margin-bottom: .7rem; }
+.kanban-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(100%, 14.5rem),1fr)); gap: .85rem; align-items: start; }
+.kanban-column { min-width: 0; padding: .8rem; background: var(--bg); border: 1px solid var(--line); border-radius: .95rem; }
+.kanban-column header { display: flex; align-items: center; gap: .5rem; margin-bottom: .7rem; }
+.kanban-column h3 { font-size: .94rem; }
+.kanban-dot { display: inline-block; width: .62rem; height: .62rem; border-radius: 50%; background: #8060e9; flex: 0 0 auto; }
+.kanban-dot.blocked { background: #e6a451; }.kanban-dot.delivered { background: #39a77e; }
+.column-count { font-size: .8rem; margin-left: auto; font-weight: 700; color: var(--muted); }
+.kanban-list { display: grid; gap: .6rem; min-height: 6rem; align-content: start; }
+.kanban-card { padding: .85rem; display: grid; gap: .55rem; min-width: 0; border-radius: .7rem; }
+.kanban-card-head { display: flex; align-items: start; justify-content: space-between; gap: .4rem; }
+.kanban-card a, .deadline-list a { color: var(--ink); text-decoration: none; overflow-wrap: anywhere; font-weight: 700; }
+.kanban-card a:hover, .deadline-list a:hover { color: var(--violet-deep); text-decoration: underline; }
+.kanban-card > small, .deadline-list small { color: var(--muted); display: block; }
+.drag-handle { display: grid; place-items: center; width: 1.6rem; height: 1.6rem; flex-shrink: 0; cursor: grab; color: var(--muted); touch-action: none; }
+.drag-handle:active { cursor: grabbing; }.kanban-ghost { opacity: .42; border: 1px dashed var(--violet); }.kanban-chosen { box-shadow: 0 8px 21px #291c5633; }
+.kanban-foot { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: .35rem; }
+.kanban-order { display: flex; gap: .3rem; }
+.order-button { display: grid; place-items: center; width: 1.65rem; height: 1.65rem; border: 1px solid var(--line); border-radius: .35rem; color: var(--muted); background: var(--surface); }
+.order-button:disabled { opacity: .32; cursor: not-allowed; }
+.kanban-empty { border: 1px dashed var(--line); color: var(--muted); padding: 1rem .5rem; font-size: .85rem; border-radius: .55rem; text-align: center; }
+.insights { margin-top: 1.8rem; }.insights .section-head p { font-size: .9rem; margin-top: .25rem; }
+.insight-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: .85rem; align-items: stretch; }
+.insight-grid .panel { min-width: 0; }.calendar-grid { margin-top: .85rem; grid-template-columns: minmax(0,1.15fr) minmax(0,1fr); align-items: start; }
+.donut-wrap { width: 100%; max-width: 18rem; height: 13rem; margin: .45rem auto; position: relative; }.donut-center { position: absolute; inset: 0; display: grid; align-content: center; justify-items: center; pointer-events: none; }.donut-center strong { font-size: 2.2rem; line-height: 1.2; letter-spacing: -.06em; }.donut-center small { color: var(--muted); }
+.chart-legend { display: flex; justify-content: center; flex-wrap: wrap; gap: .4rem .8rem; font-size: .8rem; color: var(--muted); }.chart-legend span { display: flex; align-items: center; gap: .3rem; }.chart-legend b { color: var(--ink); }
+.bar-wrap { height: 14rem; position: relative; }.chart-empty { min-height: 8rem; display: grid; place-items: center; color: var(--muted); text-align: center; font-size: .9rem; padding: 1rem; }
+.calendar-head { display: flex; justify-content: space-between; align-items: center; gap: .5rem; margin: .3rem 0 .6rem; flex-wrap: wrap; }.calendar-head h3 { text-transform: capitalize; font-size: 1rem; }.calendar-controls { display: flex; gap: .3rem; }.calendar-controls .button { min-height: 2.2rem; }.calendar-controls .icon-button { width: 2.2rem; }
+.calendar-days { display: grid; grid-template-columns: repeat(7,minmax(0,1fr)); gap: .25rem; }.weekday { font-size: .75rem; text-transform: uppercase; color: var(--muted); text-align: center; font-weight: 700; padding: .3rem 0; }.calendar-day { min-width: 0; min-height: 2.55rem; border: 1px solid transparent; background: var(--bg); color: var(--ink); border-radius: .45rem; display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: .15rem; font-size: .87rem; padding: .22rem; transition: background .2s ease,transform .2s var(--motion); }.calendar-day:hover { background: var(--lavender); }.calendar-day:active { transform: scale(.94); }.calendar-day.outside { color: var(--muted); opacity: .65; }.calendar-day.today { border-color: var(--violet); }.calendar-day[aria-pressed="true"] { background: var(--violet); color: white; opacity: 1; }.calendar-event { background: var(--lavender); color: var(--violet-deep); border-radius: .3rem; padding: 0 .22rem; font-size: .68rem; }.calendar-day[aria-pressed="true"] .calendar-event { background: #ffffffdd; color: #4b25b2; }
+.calendar-agenda { border-top: 1px solid var(--line); margin-top: .7rem; padding-top: .7rem; }.calendar-agenda h3 { font-size: .9rem; margin-bottom: .35rem; }.calendar-agenda p { font-size: .85rem; }
+.deadline-stats { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; margin-bottom: .65rem; }.deadline-stats div { padding: .7rem; border: 1px solid var(--line); background: var(--bg); border-radius: .65rem; }.deadline-stats b,.deadline-stats small { display: block; }.deadline-stats b { font-size: 1.6rem; letter-spacing: -.05em; }.deadline-stats small { color: var(--muted); font-size: .8rem; }.deadline-list li { align-items: center; }.deadline-list li > div { min-width: 0; }.deadline-list .deadline-badge { flex-shrink: 0; }
+@media (max-width: 60rem) { .insight-grid,.calendar-grid { grid-template-columns: minmax(0,1fr); }.view-toggle { flex-shrink: 0; } }
+@media (max-width: 37rem) { .toolbar .view-toggle { flex: 1 0 100%; }.view-toggle .button { flex: 1; }.calendar-days { gap: .18rem; }.calendar-day { min-height: 2.3rem; }.calendar-day span { font-size: .79rem; }.calendar-event { font-size: .65rem; }.deadline-list .deadline-badge { font-size: .7rem; } }
