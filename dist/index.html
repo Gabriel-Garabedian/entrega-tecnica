@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f7f7fc">
+  <meta name="description" content="Organize atividades, testes e entregas no GitHub e no Moodle.">
+  <title>Entrega Técnica</title>
+  <script src="theme.js"></script>
+  <link rel="stylesheet" href="style.css">
+  <script type="module" src="app.js"></script>
+</head>
+<body>
+  <a class="skip" href="#conteudo">Pular para o conteúdo</a>
+  <div class="shell">
+    <aside class="sidebar" aria-label="Navegação">
+      <a class="brand" href="#inicio"><span class="brand-icon" data-icon="layers"></span><span>Entrega Técnica<small>Área de trabalho</small></span></a>
+      <nav class="nav">
+        <a href="#inicio" data-nav="inicio"><i data-icon="grid"></i>Visão geral</a>
+        <a href="#atividades" data-nav="atividades"><i data-icon="folder"></i>Atividades</a>
+        <button type="button" data-action="backup"><i data-icon="download"></i>Backup</button>
+      </nav>
+      <div class="account"><span class="avatar">G</span><div><strong>Gabriel-Garabedian</strong><small>Nome de autor esperado</small></div></div>
+    </aside>
+    <div class="workspace">
+      <header class="topbar">
+        <div class="crumb"><span>Área de trabalho</span><i data-icon="chevron-right"></i><strong id="page-label">Visão geral</strong></div>
+        <div class="topbar-actions"><span class="storage"><i data-icon="shield"></i>Dados neste navegador</span><button class="theme-toggle" id="theme-toggle" type="button" aria-label="Alternar tema" title="Alternar tema"><span class="theme-symbol" aria-hidden="true">☾</span></button></div>
+      </header>
+      <main id="conteudo" tabindex="-1"><p class="loading">Carregando atividades…</p></main>
+    </div>
+  </div>
+  <dialog id="dialog" aria-labelledby="dialog-title"></dialog>
+  <div id="notice" class="notice" role="status" aria-live="polite"></div>
+  <noscript>Ative o JavaScript para usar o painel de entregas.</noscript>
+</body>
+</html>
