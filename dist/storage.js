@@ -1,10 +1,16 @@
-import { author, emptyMember, exampleProject, fields, maxAttachmentSize, memberFields, newProject, safeLink, slots, stages, states, validFile } from './model.js';
+import { author, emptyMember, fields, maxAttachmentSize, memberFields, newProject, safeLink, slots, stages, states, validFile } from './model.js';
 
 export function openDatabase() {
   return new Promise((resolve, reject) => {
-    const request = indexedDB.open('entrega-tecnica', 1);
-    request.onupgradeneeded = () => request.result.createObjectStore('projects', { keyPath: 'id' }).put(exampleProject());
-    request.onsuccess = () => resolve(request.result);
+    const request = indexedDB.open('entrega-tecnica', 2);
+    request.onupgradeneeded = ({ oldVersion }) => {
+      if (oldVersion === 0) request.result.createObjectStore('projects', { keyPath: 'id' });
+      if (oldVersion === 1) request.transaction.objectStore('projects').delete('exemplo');
+    };
+    request.onsuccess = () => {
+      request.result.onversionchange = () => request.result.close();
+      resolve(request.result);
+    };
     request.onerror = () => reject(request.error);
   });
 }

@@ -104,7 +104,7 @@ function renderRows() {
       (!term || normalize([project.title, project.discipline, project.branch].join(' ')).includes(term));
   });
   if (!visible.length) {
-    area.innerHTML = `<div class="panel empty">${projects.length ? 'Nenhuma atividade corresponde à busca.' : 'Nenhuma atividade cadastrada. Use “Nova atividade” para começar.'}</div>`;
+    area.innerHTML = projects.length ? '<div class="panel empty">Nenhuma atividade corresponde à busca.</div>' : `<div class="panel empty empty-start"><span class="tile-icon">${icon('folder')}</span><h3>Nenhuma atividade cadastrada</h3><p>Seu painel está pronto. Crie sua primeira atividade quando quiser.</p>${button('new', 'Criar primeira atividade', 'primary', 'plus')}</div>`;
     return;
   }
   area.innerHTML = `<div class="panel table-wrap"><table>

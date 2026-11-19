@@ -54,6 +54,9 @@ small { font-size: .81rem; }
 .storage i { color: var(--violet); }
 main { max-width: 95rem; margin-inline: auto; padding: 1.85rem clamp(1.25rem, 3.1vw, 3.1rem) 3rem; }
 .loading, .empty { color: var(--muted); padding: 1.5rem; }
+.empty-start { display: grid; justify-items: center; text-align: center; gap: .65rem; padding: 2.5rem 1rem; }
+.empty-start h3 { color: var(--ink); }
+.empty-start .button { margin-top: .35rem; }
 .hero { overflow: hidden; isolation: isolate; position: relative; display: flex; align-items: center; min-height: 13.1rem; padding: 1.85rem 2.1rem; background: var(--hero); color: white; border-radius: .95rem; }
 .hero-copy { z-index: 1; max-width: 34rem; }
 .hero h1 { margin-bottom: .5rem; font-size: clamp(2rem, 3.25vw, 3.15rem); font-weight: 760; letter-spacing: -.058em; }

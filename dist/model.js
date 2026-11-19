@@ -36,21 +36,6 @@ export function newProject(id = crypto.randomUUID()) {
   };
 }
 
-export function exampleProject() {
-  const project = {
-    ...newProject('exemplo'), example: true, title: 'API de catálogo', discipline: 'Desenvolvimento Web',
-    branch: 'atividade/catalogo', observedAuthor: author, pending: 'Anexar o relatório e conferir o ZIP final.',
-    work: 'Implementação das rotas de listagem e consulta do catálogo.',
-    answers: 'README.md, na seção «Respostas da atividade».',
-    members: [{ ...emptyMember(), id: 'exemplo-integrante', name: 'Integrante de exemplo', role: 'Rotas de catálogo',
-      commands: 'npm test', tests: 'Listagem e consulta por identificador.',
-      results: 'As duas verificações passaram.' }]
-  };
-  for (const id of ['structure','author','credits','tests','docs']) project.stages[id].state = 'done';
-  project.stages.evidence.state = 'doing';
-  return project;
-}
-
 export function summary(project) {
   const entries = stages.map(([id, title]) => ({ title, ...project.stages[id] }));
   const applicable = entries.filter(row => row.state !== 'na');
