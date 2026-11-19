@@ -30,12 +30,16 @@ Sem login, os projetos e anexos são salvos no IndexedDB do navegador. Com login
 
 ### Usar no computador e no celular
 
-1. Abra `https://entrega-tecnica-gabriel.garabedi4n.chatgpt.site/` nos dois dispositivos.
+1. Abra `https://gabriel-garabedian.github.io/entrega-tecnica/` nos dois dispositivos (após habilitar GitHub Pages). O endereço antigo do ChatGPT Sites continua como alternativa enquanto estiver disponível.
 2. Clique em **Entrar**, crie sua conta, confirme o e-mail e depois entre com o mesmo e-mail e senha.
 3. Se você criou atividades no endereço anterior, exporte o backup e importe na conta conectada. No mesmo navegador e endereço, também pode usar **Minha conta > Copiar atividades locais para a nuvem**, sem apagar as originais ou sobrescrever registros existentes.
 4. No celular, use o botão **Instalar** ou o menu do navegador para adicionar à tela inicial. A aplicação usa PWA e não exige computador ligado. A sincronização e a edição em nuvem exigem conexão; o modo local permanece disponível sem login.
 
-O projeto Supabase dedicado fica na região `sa-east-1`. O arquivo `supabase/schema.sql` documenta o esquema aplicado, as políticas RLS, o Storage privado e a publicação Realtime. `dist/cloud-config.js` contém apenas a chave publicável, nunca a chave privilegiada. Para configurar o endereço de confirmação de e-mail de produção, no painel Supabase (Authentication > URL Configuration), defina Site URL e Redirect URL como `https://entrega-tecnica-gabriel.garabedi4n.chatgpt.site/`. Mesmo que um link de confirmação redirecione para outro endereço, volte ao painel e entre após confirmar o e-mail.
+O projeto Supabase dedicado fica na região `sa-east-1`. O arquivo `supabase/schema.sql` documenta o esquema aplicado, as políticas RLS, o Storage privado e a publicação Realtime. `dist/cloud-config.js` contém apenas a chave publicável, nunca a chave privilegiada. No painel Supabase (Authentication > URL Configuration), defina Site URL como `https://gabriel-garabedian.github.io/entrega-tecnica/` e inclua esse endereço em Redirect URLs. Se ainda utilizar o ChatGPT Sites, mantenha `https://entrega-tecnica-gabriel.garabedi4n.chatgpt.site/` também nos redirects permitidos. Mesmo que um link de confirmação redirecione para outro endereço, volte ao painel e entre após confirmar o e-mail.
+
+### GitHub Pages
+
+Em Settings > Pages, selecione **GitHub Actions** como fonte de publicação, uma única vez. O workflow `.github/workflows/pages.yml` executa os testes e publica somente `dist/` em cada push na branch `main`. Pode também ser executado manualmente na aba Actions. O frontend é público, mas as atividades e anexos autenticados permanecem privados pelas políticas do Supabase.
 
 Para reconstruir o SDK local: `npm ci` e `npm run build:cloud`.
 

@@ -1,5 +1,5 @@
 // Caches only public application assets, never API requests, login responses or user data.
-const CACHE = 'entrega-shell-v6';
+const CACHE = 'entrega-shell-v7';
 const ASSETS = ['index.html','style.css','app.js','model.js','storage.js','workspace.js','motion-ui.js','theme.js','cloud.js','cloud-config.js','pwa.js','manifest.webmanifest','icon.svg','icon-192.png','icon-512.png','vendor/motion.mjs','vendor/workspace.mjs','vendor/charts.mjs','vendor/supabase.mjs'].map(path => new URL(path, self.registration.scope).href);
 const known = new Set(ASSETS);
 self.addEventListener('install', event => event.waitUntil(caches.open(CACHE).then(cache => Promise.all(ASSETS.map(async url => {

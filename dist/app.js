@@ -2,7 +2,7 @@ import { author, emptyMember, fields, maxAttachmentSize, memberFields, newProjec
 import { makeBackup, openDatabase, parseBackup, readProjects, updateProject, writeProjects } from './storage.js';
 import { reveal, animateCounts, animateProgress, animateDialog, animateNotice, animatePress, animateStatus } from './motion-ui.js';
 import { installIcons, searchProjects, deadlineInfo, displayDate, monthLabel, dayKey, calendarDays, addMonths, isSameMonth, startOfMonth, priorityOrder, reorderColumn, mountBoard, destroyBoard, chartData, mountCharts, destroyCharts } from './workspace.js';
-import { CloudStore, getCloudClient, localOnlyProjects } from './cloud.js';
+import { CloudStore, getCloudClient, localOnlyProjects, authRedirectUrl } from './cloud.js';
 import { installApp } from './pwa.js';
 
 const root = document.querySelector('main');
@@ -578,7 +578,7 @@ async function saveForm(form) {
   if (kind === 'signin' || kind === 'signup') {
     cloudClient ||= await getCloudClient();
     const credentials = { email: read('email'), password: String(data.get('password') || '') };
-    const { data: result, error } = kind === 'signin' ? await cloudClient.auth.signInWithPassword(credentials) : await cloudClient.auth.signUp({ ...credentials, options: { emailRedirectTo: 'https://entrega-tecnica-gabriel.garabedi4n.chatgpt.site/' } });
+    const { data: result, error } = kind === 'signin' ? await cloudClient.auth.signInWithPassword(credentials) : await cloudClient.auth.signUp({ ...credentials, options: { emailRedirectTo: authRedirectUrl() } });
     if (error) {
       const messages = { invalid_credentials: 'E-mail ou senha inválidos.', email_not_confirmed: 'Confirme o e-mail recebido antes de entrar.', weak_password: 'Escolha uma senha mais forte.', over_email_send_rate_limit: 'Aguarde antes de solicitar outro e-mail.', signup_disabled: 'Cadastro indisponível neste momento.' };
       throw new Error(messages[error.code] || error.message);

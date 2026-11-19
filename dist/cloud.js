@@ -5,6 +5,10 @@ const TABLE = 'entrega_projects';
 const BUCKET = 'entrega-anexos';
 const rowFields = 'project_id,payload,version,deleted_at';
 export const conflictMessage = 'Esta atividade mudou em outro dispositivo. Atualize o painel, revise os dados e tente novamente.';
+export function authRedirectUrl(locationLike = globalThis.location) {
+  const oldHost = 'entrega-tecnica-gabriel.garabedi4n.chatgpt.site';
+  return locationLike?.hostname === oldHost ? `https://${oldHost}/` : 'https://gabriel-garabedian.github.io/entrega-tecnica/';
+}
 let clientPromise;
 export function getCloudClient() {
   return clientPromise ??= import('./vendor/supabase.mjs').then(({ createClient }) => createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, flowType: 'pkce', storageKey: 'entrega-tecnica-auth' } }));
