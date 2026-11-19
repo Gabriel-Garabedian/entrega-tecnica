@@ -1,5 +1,6 @@
 import { author, emptyMember, fields, maxAttachmentSize, memberFields, newProject, professorMessage, safeLink, slots, stages, states, statusLabels, summary, validFile } from './model.js';
 import { makeBackup, openDatabase, parseBackup, readProjects, updateProject, writeProjects } from './storage.js';
+import { reveal, animateCounts, animateProgress, animateDialog, animateNotice, animatePress, animateStatus } from './motion-ui.js';
 
 const root = document.querySelector('main');
 const dialog = document.querySelector('dialog');
@@ -83,13 +84,14 @@ const external = (value, label, className = '') => {
 const button = (name, label, appearance = 'secondary', glyph = '', extra = '') =>
   `<button type="button" class="button ${appearance}" data-action="${name}" ${extra}>${glyph ? icon(glyph) : ''}${esc(label)}</button>`;
 const list = items => items.length ? `<ul>${items.map(item => `<li>${esc(item)}</li>`).join('')}</ul>` : '';
-const progressBar = info => `<div class="progress-row"><progress value="${info.percent}" max="100" aria-label="Progresso das etapas"></progress><small>${info.done.length}/${info.total}</small></div>`;
+const progressBar = (info, key) => `<div class="progress-row"><progress class="visually-hidden" value="${info.percent}" max="100" aria-label="Progresso das etapas"></progress><span class="progress-track" aria-hidden="true"><span class="progress-fill" data-progress="${esc(key)}" data-value="${info.percent}" style="transform:scaleX(${info.percent / 100})"></span></span><small>${info.done.length}/${info.total}</small></div>`;
 const currentRoute = () => location.hash.slice(1).split('/');
 const byId = id => projects.find(project => project.id === id);
 
 function notify(message) {
   clearTimeout(noticeTimeout);
   notice.textContent = message;
+  animateNotice(notice);
   noticeTimeout = setTimeout(() => { notice.textContent = ''; }, 4200);
 }
 
@@ -113,11 +115,12 @@ function renderRows() {
       const info = summary(project);
       return `<tr>
         <td><div class="activity-cell"><span class="tile-icon">${icon('folder')}</span><div><a href="${activityLink(project)}">${esc(project.title)}</a>${sample(project)}<small>${text(project.discipline, 'Sem disciplina')}</small></div></div></td>
-        <td>${statusBadge(info)}</td><td class="progress-cell">${progressBar(info)}</td>
+        <td>${statusBadge(info)}</td><td class="progress-cell">${progressBar(info, `row-${project.id}`)}</td>
         <td data-cell="deadline">${date(project.deadline)}</td>
         <td><a class="button secondary" href="${activityLink(project)}" aria-label="Abrir ${esc(project.title)}">Abrir</a></td>
       </tr>`;
     }).join('')}</tbody></table></div>`;
+  animateProgress(area);
 }
 
 function summaryPanel(project) {
@@ -169,7 +172,7 @@ function dashboard(home) {
     <div class="paper">${icon('checklist')}<span></span><span></span><span></span></div>
     <div class="file-chip zip">${icon('folder')} ZIP</div><div class="file-chip pdf">${icon('file')} PDF</div></div>
   </section>
-  <div class="metrics" aria-label="Totais por status">${metrics.map(([id, label, glyph, tone]) => `<button class="metric" type="button" data-action="filter" data-filter="${id}" aria-pressed="${filter === id}"><span class="tile-icon ${tone}">${icon(glyph)}</span><span><b>${counts[id]}</b><small>${label}</small></span></button>`).join('')}</div>`
+  <div class="metrics" aria-label="Totais por status">${metrics.map(([id, label, glyph, tone]) => `<button class="metric" type="button" data-action="filter" data-filter="${id}" aria-label="${counts[id]} ${label}" aria-pressed="${filter === id}"><span class="tile-icon ${tone}">${icon(glyph)}</span><span><b data-count="${counts[id]}" data-metric="${id}" aria-hidden="true">${counts[id]}</b><small>${label}</small></span></button>`).join('')}</div>`
   : `<div class="title-row"><div><h1>Atividades</h1><p>Abra um projeto para editar os dados e acompanhar a entrega.</p></div>${button('new', 'Nova atividade', 'primary', 'plus')}</div>`}
   <section aria-label="Lista de atividades">
     <div class="section-head">
@@ -186,6 +189,7 @@ function dashboard(home) {
     <div class="review-grid"></div></section>` : ''}`;
   renderRows();
   renderMonitor();
+  animateCounts(root);
 }
 
 function basicInput(label, key, value = '', { type = 'text', required = false, hint = '', wide = false, rows = 0, placeholder = '' } = {}) {
@@ -227,6 +231,7 @@ function detailData(project) {
 function detailStages(project) {
   return `<div class="detail-grid"><section class="panel padded">
     <div class="panel-heading">${icon('checklist')}<h2>Checklist de entrega</h2></div>
+    <div class="checklist-progress"><span>Progresso da atividade</span>${progressBar(summary(project), `detail-${project.id}`)}</div>
     <ul class="stage-list">${stages.map(([id, label, detail]) => {
       const row = project.stages[id];
       return `<li><div class="stage-line"><div><strong>${label}</strong><small>${detail}</small>
@@ -288,7 +293,7 @@ function detailDelivery(project) {
   <a class="button secondary" href="${activityLink(project)}">Atualizar etapas</a></section></div></div>`;
 }
 
-function render() {
+function render(transition = false) {
   const [page, id, section] = currentRoute();
   const project = page === 'atividade' && byId(id);
   const tab = Object.hasOwn(tabs, section) ? section : 'etapas';
@@ -300,6 +305,7 @@ function render() {
   });
   if (!project) {
     dashboard(page !== 'atividades');
+    if (transition) reveal(root);
     return;
   }
   const info = summary(project);
@@ -309,12 +315,15 @@ function render() {
     ${button('delete', isExample(project) ? 'Remover exemplo' : 'Excluir atividade', 'secondary', '', `data-id="${project.id}"`)}</div>
     <nav class="tabbar" aria-label="Seções da atividade">${Object.entries(tabs).map(([key, [label, glyph]]) => `<a href="${activityLink(project, key)}" ${tab === key ? 'aria-current="page"' : ''}>${icon(glyph)}${label}</a>`).join('')}</nav>
     ${({ etapas: detailStages, dados: detailData, equipe: detailTeam, envio: detailDelivery })[tab](project)}`;
+  animateProgress(root);
+  if (transition) reveal(root);
 }
 
 function showDialog(title, content) {
   dialog.innerHTML = `<div class="dialog-head"><h2 id="dialog-title">${esc(title)}</h2>
     ${button('close', '', 'plain icon-button', 'close', 'aria-label="Fechar"')}</div>${content}`;
   if (!dialog.open) dialog.showModal();
+  animateDialog(dialog);
   (dialog.querySelector('input:not([type=file])') || dialog.querySelector('[data-action=close]')).focus();
 }
 
@@ -544,7 +553,9 @@ async function changeStage(select) {
     });
     if (select.isConnected) {
       renderKeepingDrafts();
-      root.querySelector(`[data-stage="${stage}"]`)?.focus({ preventScroll: true });
+      const updated = root.querySelector(`[data-stage="${stage}"]`);
+      updated?.focus({ preventScroll: true });
+      animateStatus(updated);
     }
     notify('Etapa atualizada.');
   } catch (error) {
@@ -556,16 +567,15 @@ async function changeStage(select) {
 try {
   db = await openDatabase();
   setProjects(await readProjects(db));
-  render();
+  render(true);
   window.addEventListener('hashchange', () => {
-    render();
-    if (!matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      root.animate([{ opacity: .3, transform: 'translateY(9px)' }, { opacity: 1, transform: 'translateY(0)' }], { duration: 340, easing: 'cubic-bezier(.22, 1, .36, 1)' });
-    }
+    render(true);
     root.focus({ preventScroll: true });
     window.scrollTo(0, 0);
   });
   document.addEventListener('click', event => {
+    const pressed = event.target.closest('.button, .metric, .nav a, .nav button, .tabbar a, .theme-toggle');
+    if (pressed) animatePress(pressed);
     const control = event.target.closest('[data-action]');
     if (control) handleAction(control).catch(error => notify(error.message || 'Não foi possível concluir a operação.'));
   });
@@ -581,6 +591,7 @@ try {
     if (input.id === 'monitor-project') {
       monitored = input.value;
       renderMonitor();
+      reveal(document.querySelector('#monitor'));
     }
     if (input.matches('[data-stage]')) changeStage(input);
   });
